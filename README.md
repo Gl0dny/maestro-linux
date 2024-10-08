@@ -22,6 +22,8 @@ In Ubuntu, you can do this with the command:
 
   sudo apt-get install libusb-1.0-0-dev mono-runtime libmono-system-windows-forms4.0-cil
 
+In Arch Linux:
+  sudo pacman -S libusb mono
 
 == USB Configuration ==
 
