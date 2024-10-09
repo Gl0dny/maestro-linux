@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8"/>
+<title>Maestro Movement Calculator 1.0.0</title>
+<script src="https://code.jquery.com/jquery-3.1.0.min.js"
+        integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s="
+        crossorigin="anonymous"></script>
+<script>
+$(function() {
+  $("#main_form").submit(handleFormSubmit);
+});
+
+function intFromForm(name) {
+  return parseInt($("#main_form [name=" + name + "]").val());
+}
+
+function handleFormSubmit()
+{
+  try {
+    calculateMovementAndWriteOutput();
+    //$("#chart").show();
+    $("#output_container").show();
+  }
+  catch (err) {
+    console.error(err);
+    $("#output").html(err);
+    //$("#chart").hide();
+    $("#output_container").show();
+  }
+  return false;
+}
+
+function calculateMovementAndWriteOutput() {
+  var initialState = {
+    target: intFromForm("target"),
+    position: intFromForm("position"),
+    velocity: 0,
+    speed: intFromForm("speed_limit"),
+    accel: intFromForm("accel_limit"),
+    updateCount: 0,
+  };
+  var states = calculateStates(initialState);
+  
+  var timeMs = states.length * 10;
+  
+  $("#output").html("");
+  $("#output").append("Approximate time: " + timeMs + " ms");
+ 
+}
+
+// Calculates the series of states that the Maestro's updater routine will go
+// through to get from the current position to the target.  The first state
+// will always be at the current position, and the last element will always
+// be the target.
+function calculateStates(initialState) {
+  var states = [initialState];
+  while (true) {
+    var last_state = states[states.length - 1];
+    if (last_state.position == last_state.target && last_state.velocity == 0) {
+      // Target reached
+      return states;
+    }
+    
+    if (states.length >= 10000) {
+      throw "Algorithm failed to terminate after " + states.length + " iterations.";
+    }
+    
+    var new_state = servoUpdate(last_state);
+    states.push(new_state);
+  }
+}
+
+function servoUpdate(state) {
+  var position = state.position;
+  var diff = state.target - state.position;
+  var velocity = state.velocity;
+  var accel = state.accel;
+
+  var speed = state.speed;
+  if (speed == 0) { speed = 20000; }
+
+  if (accel == 0) {
+    velocity = diff;
+  }
+  else if ((state.count & 7) == 0) {
+    var calc = (Math.abs(diff) * accel <= velocity * velocity * 4);
+    if (diff >= 0) {
+      if (velocity < 0 || !calc) {
+        velocity += accel;
+      }
+      else {
+        velocity -= accel;
+        if (velocity < accel) {
+          velocity = accel;
+        }
+      }
+    }
+    else {
+      if (velocity > 0 || !calc) {
+        velocity -= accel;
+      }
+      else {
+        velocity += accel;
+        if (velocity > -accel) {
+          velocity = -accel;
+        }
+      }
+    }
+  }
+ 
+  if (velocity > speed) {
+    velocity = speed;
+  }
+  else if (velocity < -speed) {
+    velocity = -speed;
+  }
+
+  if (position == 0 ||
+     state.target == 0 ||
+     (diff >= 0 && velocity >= diff) ||
+     (diff <= 0 && velocity <= diff)) {
+    position = state.target;
+    velocity = 0;
+  }
+  else
+  {
+    position += velocity;
+  }
+
+  var newState = {
+    target: state.target,
+    position: position,
+    velocity: velocity,
+    speed: speed,
+    accel: accel,
+    updateCount: state.updateCount + 1,
+  };
+  return newState;
+}
+
+</script>
+<style>
+#output { margin-bottom: 1em; }
+</style>
+<h1>Maestro Movement Calculator</h1>
+<p>
+  Enter the movement parameters for your servo below, and then click
+  "Calculate" to calculate how long it will take for a
+  <a href="https://www.pololu.com/category/102/maestro-usb-servo-controllers">
+  Maestro servo controller</a>
+  to perform that movement.
+  This calculator assumes that you are using the default servo period of 20&nbsp;ms.
+  This calculator does not account for any of the variation that happens due to the timing of when the movement command is sent to the Maestro.
+  See the "Channel Settings" section of the
+  <a href="https://www.pololu.com/docs/0J40">Maestro user's guide</a> for more information
+  about speed and acceleration.
+</p>
+
+<form id="main_form">
+  <table>
+    <tr>
+      <td>
+        <label for="position_input">Current position, in units of quarter microseconds:</label>
+      <td>
+        <input id="position_input" name="position"
+               type="number" min="256" max="16320" value="6000" />
+    <tr>
+      <td>
+        <label for="target_input">New target, in units of quarter microseconds:</label>
+      <td>
+        <input id="target_input" name="target"
+               type="number" min="256" max="16320" value="8000" />
+    <tr>
+      <td>
+        <label for="speed_limit_input">Speed limit:</label>
+      <td>
+        <input id="speed_limit_input" name="speed_limit"
+               type="number" min="0" max="10000" value="10" />
+    <tr>
+      <td>
+        <label for="accel_limit_input">Acceleration limit:</label>
+      <td>
+        <input id="accel_limit_input" name="accel_limit"
+               type="number" min="0" max="10000" value="5" />
+    <tr>
+      <td>
+      <td>
+        <input type="submit" value="Calculate" />
+  </table>
+</form>
+
+<div id="output_container" style="display: none;">
+  <hr>
+  <div id="output"></div>
+</div>
+
+<!--
+Copyright (c) 2016 Pololu Corporation.  For more information, see
+
+http://www.pololu.com/
+http://forum.pololu.com/
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+-->
