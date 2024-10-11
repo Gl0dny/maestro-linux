@@ -4,3 +4,6 @@
 [submodule "lib/maestro-usb.cpp"]
 	path = lib/maestro-usb.cpp
 	url = git@github.com:Gl0dny/maestro-usb.cpp.git
+[submodule "lib/maestro-serial.cpp"]
+	path = lib/maestro-serial.cpp
+	url = git@github.com:Gl0dny/maestro-serial.cpp.git
