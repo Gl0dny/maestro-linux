@@ -1,0 +1,3 @@
+[submodule "lib/python-maestro-usb"]
+	path = lib/python-maestro-usb
+	url = git@github.com:Gl0dny/python-maestro-usb.git
